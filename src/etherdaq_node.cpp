@@ -32,7 +32,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/** 
+/**
  * Simple stand-alone ROS node that takes data from EtherDAQ sensor and
  * Publishes it ROS topic
  */
@@ -70,12 +70,12 @@ void zeroFunction(const std_msgs::Bool &msg)
 
 
 int main(int argc, char **argv)
-{ 
+{
   ros::init(argc, argv, "etherdaq_node");
   ros::NodeHandle nh;
 
   float pub_rate_hz;
-  int filter_hz; 
+  int filter_hz;
   string address;
   string frame_id;
 
@@ -83,12 +83,12 @@ int main(int argc, char **argv)
   desc.add_options()
     ("help", "display help")
     ("rate", po::value<float>(&pub_rate_hz)->default_value(100.0), "set publish rate and Ethernet DAQ speed (in hertz)")
-	("filter", po::value<int>(&filter_hz)->default_value(4), "set filtering (0 = No filter; 1 = 500 Hz; 2 = 150 Hz; 3 = 50 Hz; 4 = 15 Hz; 5 = 5 Hz; 6 = 1.5 Hz)") 
+	("filter", po::value<int>(&filter_hz)->default_value(4), "set filtering (0 = No filter; 1 = 500 Hz; 2 = 150 Hz; 3 = 50 Hz; 4 = 15 Hz; 5 = 5 Hz; 6 = 1.5 Hz)")
     ("wrench", "publish older Wrench message type instead of WrenchStamped")
     ("address", po::value<string>(&address), "IP address of EthernetDAQ box")
-    ("frame_id", po::value<string>(&frame_id)->default_value("base_link"), "Frame ID for Wrench data")  
+    ("frame_id", po::value<string>(&frame_id)->default_value("base_link"), "Frame ID for Wrench data")
     ;
-     
+
   po::positional_options_description p;
   p.add("address",  1);
 
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
   {
     cout << desc << endl;
     exit(EXIT_SUCCESS);
-  }      
+  }
 
   if (!vm.count("address"))
   {
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
     cerr << "Please specify address of EthernetDAQ" << endl;
     exit(EXIT_FAILURE);
   }
-	
+
   if (filter_hz < 0 || filter_hz > 6) {
 	  cout << desc << endl;
 	  cerr<<"Please specify a valid filtering value instead of "<<filter_hz<<endl;
@@ -123,21 +123,24 @@ int main(int argc, char **argv)
   }
 
   etherdaq = new optoforce_etherdaq_driver::EtherDAQDriver(address, pub_rate_hz, filter_hz);
-	
+
   bool isRawData = etherdaq->isRawData();
 
-  std::string topicName = "ethdaq_data";	
+  std::string topicName = "ethdaq_data";
   if (isRawData) {
 	  topicName += "_raw";
   }
-	
+	//I have added a new topic name just for us
+	//change again because this is bad
+	topicName = "wrench";
+
   ros::Publisher pub;
   ros::Subscriber sub = nh.subscribe("ethdaq_zero", 1000, zeroFunction);
   if (publish_wrench)
   {
     pub = nh.advertise<geometry_msgs::Wrench>(topicName, 100);
   }
-  else 
+  else
   {
     pub = nh.advertise<geometry_msgs::WrenchStamped>(topicName, 100);
   }
@@ -151,26 +154,36 @@ int main(int argc, char **argv)
   diagnostic_updater::DiagnosticStatusWrapper diag_status;
   ros::Time last_diag_pub_time(ros::Time::now());
 
-  unsigned int packetCount = 0; 
-  ros::Time startTime(ros::Time::now());	
+  unsigned int packetCount = 0;
+  ros::Time startTime(ros::Time::now());
+	bool zero_switch=false; // treba true
+	//added this bool
   while (ros::ok())
   {
+
+		//added this statement
+		if (zero_switch==true) {
+			etherdaq->doUnzero();
+			etherdaq->doZero();
+			zero_switch=false;
+		}
+		// added this statement end
     if (etherdaq->waitForNewData())
     {
       etherdaq->getData(data);
-      packetCount++; 
-      if (publish_wrench) 
+      packetCount++;
+      if (publish_wrench)
       {
 	data.header.frame_id = frame_id;
         pub.publish(data.wrench);
       }
-      else 
+      else
       {
    	data.header.frame_id = frame_id;
         pub.publish(data);
       }
     }
-    
+
     ros::Time current_time(ros::Time::now());
     if ( (current_time - last_diag_pub_time) > diag_pub_duration )
     {
@@ -185,10 +198,10 @@ int main(int argc, char **argv)
     ros::spinOnce();
     pub_rate.sleep();
   }
-	
+
   if (etherdaq != NULL) {
 	  delete etherdaq;
   }
-  
+
   return 0;
 }

@@ -49,13 +49,13 @@ ros::Duration accDuration(0);
 void chatterCallback(const geometry_msgs::WrenchStamped& msg)
 {
 	ros::Time currentTime(ros::Time::now());
-	
+
 	if (lastTime == ros::Time(0)) {
 		lastTime = currentTime;
 	}
 	if (overallTime.isZero()) {
 		overallTime = currentTime;
-	} 
+	}
 	ros::Duration duration = currentTime - lastTime;
 	accDuration += duration;
 	double durationTime = duration.toSec() * 1000.0;
@@ -67,22 +67,22 @@ void chatterCallback(const geometry_msgs::WrenchStamped& msg)
 	}
 
 	if (accDuration.isZero() == false) {
-		frequency = (double)packetCount / accDuration.toSec();	
+		frequency = (double)packetCount / accDuration.toSec();
 	}
 
 
 
 	lastTime = currentTime;
-	
+
 	ROS_INFO("%u Fx:%.2f Fy:%.2f Fz:%.2f Tx:%.2f Ty:%.2f Tz:%.2f T:%.2f ms S: %.2f Hz\r\n", msg.header.seq, msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z, durationTime, frequency);
 
-	
 
-	
+
+
 }
 
 
-int main (int argc, char ** argv) 
+int main (int argc, char ** argv)
 {
 	ros::init(argc, argv, "etherdaq_subscriber");
 	ros::NodeHandle n;
@@ -90,7 +90,7 @@ int main (int argc, char ** argv)
 	ros::Publisher zero_pub = n.advertise<std_msgs::Bool>("ethdaq_zero", 1);  // The topic where we send "zeroing" (Like tare)
 	ros::Subscriber sub_raw = n.subscribe("ethdaq_data_raw", 1000, chatterCallback); // The callback where we waiting for Wrench data
 	ros::Subscriber sub_new = n.subscribe("ethdaq_data", 1000, chatterCallback);
-
+	// We need to change the name of the topic if we want this to work properly
 
 	ros::Duration zeroingTime(10.0);
 	ros::Time lastZeroing = ros::Time::now();

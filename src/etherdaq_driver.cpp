@@ -61,9 +61,9 @@ struct HSURecord  // High-speed UDP record
 uint32_t HSURecord::unpack32(const uint8_t *buffer)
 {
   return
-    ( uint32_t(buffer[0]) << 24) |     
-    ( uint32_t(buffer[1]) << 16) |     
-    ( uint32_t(buffer[2]) << 8 ) |     
+    ( uint32_t(buffer[0]) << 24) |
+    ( uint32_t(buffer[1]) << 16) |
+    ( uint32_t(buffer[2]) << 8 ) |
     ( uint32_t(buffer[3]) << 0 ) ;
 }
 
@@ -96,11 +96,11 @@ struct HSUCommand
 
   // Possible values for command_
   enum {
-    CMD_STOP_STREAMING=0, 
+    CMD_STOP_STREAMING=0,
     CMD_START_HIGH_SPEED_STREAMING=2,
     CMD_SET_SPEED=0x0082,
     CMD_SET_FILTER=0x0081
-  
+
   };
 
   // Special values for sample count
@@ -154,17 +154,17 @@ EtherDAQDriver::EtherDAQDriver(const std::string &address, unsigned int uSpeed, 
   udp::endpoint etherdaq_endpoint( boost::asio::ip::address_v4::from_string(address), DAQ_PORT);
   socket_.open(udp::v4());
   socket_.connect(etherdaq_endpoint);
-  
+
   // Get Force/Torque scale from device webserver
-  double counts_per_force =  1.0;  
-  double counts_per_torque = 1.0;
+  double counts_per_force =  10000.0;  // We made a change here
+  double counts_per_torque = 10000.0;  // twice
   force_units_ = 0;
   torque_units_ = 0;
-	 
-	  
-   doUnzero();   
-	  
-	 
+
+
+   doUnzero();
+
+
   CURL *curl;
   CURLcode result;
   std::string response;
@@ -174,9 +174,9 @@ EtherDAQDriver::EtherDAQDriver(const std::string &address, unsigned int uSpeed, 
     std::string xml_url = "http://" + address_ + "/netftcalapi.xml";
     curl_easy_setopt(curl, CURLOPT_URL, xml_url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response); 
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60);
-	
+
     result = curl_easy_perform(curl);
     if(result != CURLE_OK)
       ROS_WARN("Failed to connect to the EtherDAQ webserver: %s",
@@ -234,7 +234,7 @@ EtherDAQDriver::EtherDAQDriver(const std::string &address, unsigned int uSpeed, 
 					force_units_ = boost::lexical_cast<uint32_t>(fu_xml->GetText());
 				}
 				catch (boost::bad_lexical_cast & ) {
-					ROS_WARN_STREAM("DAQCalibration: calfu [" << fu_xml->GetText() << "] is not a number");	
+					ROS_WARN_STREAM("DAQCalibration: calfu [" << fu_xml->GetText() << "] is not a number");
 				}
 			}
 			else {
@@ -247,7 +247,7 @@ EtherDAQDriver::EtherDAQDriver(const std::string &address, unsigned int uSpeed, 
 					torque_units_ = boost::lexical_cast<uint32_t>(tu_xml->GetText());
 				}
 				catch (boost::bad_lexical_cast & ) {
-					ROS_WARN_STREAM("DAQCalibration: caltu [" << tu_xml->GetText() << "] is not a number");	
+					ROS_WARN_STREAM("DAQCalibration: caltu [" << tu_xml->GetText() << "] is not a number");
 				}
 			}
 			else {
@@ -260,10 +260,10 @@ EtherDAQDriver::EtherDAQDriver(const std::string &address, unsigned int uSpeed, 
   }
 
 
-  force_scale_ = 1.0 / counts_per_force;
+  force_scale_ = 1.0 / counts_per_force; // it was 1.0 / counts_per_force
   torque_scale_ = 1.0 / counts_per_torque;
 
-  // Start receive thread  
+  // Start receive thread
   recv_thread_ = boost::thread(&EtherDAQDriver::recvThreadFunc, this);
 
   // Since start steaming command is sent with UDP packet,
@@ -298,7 +298,7 @@ EtherDAQDriver::~EtherDAQDriver()
   }
   socket_.close();
 }
-	
+
 
 void EtherDAQDriver::doZero()
 {
@@ -306,32 +306,32 @@ void EtherDAQDriver::doZero()
 	offset_data_.wrench.force.x += new_data_.wrench.force.x;
 	offset_data_.wrench.force.y += new_data_.wrench.force.y;
 	offset_data_.wrench.force.z += new_data_.wrench.force.z;
-	
+
 	offset_data_.wrench.torque.x += new_data_.wrench.torque.x;
 	offset_data_.wrench.torque.y += new_data_.wrench.torque.y;
 	offset_data_.wrench.torque.z += new_data_.wrench.torque.z;
 }
 
-	
+
 void EtherDAQDriver::doUnzero()
 {
-  boost::unique_lock<boost::mutex> lock(mutex_);	
+  boost::unique_lock<boost::mutex> lock(mutex_);
   offset_data_.wrench.force.x = 0.0;
   offset_data_.wrench.force.y = 0.0;
   offset_data_.wrench.force.z = 0.0;
   offset_data_.wrench.torque.x = 0.0;
   offset_data_.wrench.torque.y = 0.0;
-  offset_data_.wrench.torque.z = 0.0;	
+  offset_data_.wrench.torque.z = 0.0;
 }
-	
-	
+
+
 bool EtherDAQDriver::isRawData() const
 {
 	if (force_units_ == 2 && torque_units_ == 3) {
 		return false;
 	}
 	return true;
-}		
+}
 
 
 bool EtherDAQDriver::waitForNewData()
@@ -341,7 +341,7 @@ bool EtherDAQDriver::waitForNewData()
   {
     boost::mutex::scoped_lock lock(mutex_);
     unsigned current_packet_count = packet_count_;
-    condition_.timed_wait(lock, boost::posix_time::milliseconds(100));    
+    condition_.timed_wait(lock, boost::posix_time::milliseconds(100));
     got_new_data = packet_count_ != current_packet_count;
   }
 
@@ -358,24 +358,24 @@ void EtherDAQDriver::startStreaming(void)
   if (speed_ == 0) {
 	  speed_ = 1;
   }
-  speed_setup.sample_count_ = 1000 / speed_; 
-  speed_setup.pack(buffer);	
-  socket_.send(boost::asio::buffer(buffer, HSUCommand::HSU_COMMAND_SIZE)); 
+  speed_setup.sample_count_ = 1000 / speed_;
+  speed_setup.pack(buffer);
+  socket_.send(boost::asio::buffer(buffer, HSUCommand::HSU_COMMAND_SIZE));
   // Command EtherDAQ to set up its filter
   HSUCommand filter_setup;
   filter_setup.command_ = HSUCommand::CMD_SET_FILTER;
   filter_setup.sample_count_ = filter_;
-  filter_setup.pack(buffer);	
-  socket_.send(boost::asio::buffer(buffer, HSUCommand::HSU_COMMAND_SIZE)); 
-	
+  filter_setup.pack(buffer);
+  socket_.send(boost::asio::buffer(buffer, HSUCommand::HSU_COMMAND_SIZE));
+
   // Command EtherDAQ to start data transmission
-  HSUCommand start_transmission; 
+  HSUCommand start_transmission;
   start_transmission.command_ = HSUCommand::CMD_START_HIGH_SPEED_STREAMING;
   start_transmission.sample_count_ = HSUCommand::INFINITE_SAMPLES;
-  
-  
+
+
   start_transmission.pack(buffer);
-  socket_.send(boost::asio::buffer(buffer, HSUCommand::HSU_COMMAND_SIZE)); 
+  socket_.send(boost::asio::buffer(buffer, HSUCommand::HSU_COMMAND_SIZE));
 }
 
 
@@ -392,7 +392,7 @@ void EtherDAQDriver::recvThreadFunc()
       size_t len = socket_.receive(boost::asio::buffer(buffer, HSURecord::HSU_RECORD_SIZE+1));
       if (len != HSURecord::HSU_RECORD_SIZE)
       {
-        ROS_WARN("Receive size of %d bytes does not match expected size of %d", 
+        ROS_WARN("Receive size of %d bytes does not match expected size of %d",
                  int(len), int(HSURecord::HSU_RECORD_SIZE));
       }
       else
@@ -411,7 +411,7 @@ void EtherDAQDriver::recvThreadFunc()
           // Don't use data that is old
           ++out_of_order_count_;
         }
-        else 
+        else
         {
 
           tmp_data.header.seq = seq_counter_++;
@@ -421,9 +421,9 @@ void EtherDAQDriver::recvThreadFunc()
           tmp_data.wrench.force.y = double(hsu_record.fy_) * force_scale_;
           tmp_data.wrench.force.z = double(hsu_record.fz_) * force_scale_;
           tmp_data.wrench.torque.x = double(hsu_record.tx_) * torque_scale_;
-          tmp_data.wrench.torque.y = double(hsu_record.ty_) * torque_scale_; 
+          tmp_data.wrench.torque.y = double(hsu_record.ty_) * torque_scale_;
           tmp_data.wrench.torque.z = double(hsu_record.tz_) * torque_scale_;
-          { 
+          {
 			boost::unique_lock<boost::mutex> lock(mutex_);
             new_data_ = tmp_data;
 			new_data_.wrench.force.x -= offset_data_.wrench.force.x;
@@ -431,7 +431,7 @@ void EtherDAQDriver::recvThreadFunc()
 			new_data_.wrench.force.z -= offset_data_.wrench.force.z;
 			new_data_.wrench.torque.x -= offset_data_.wrench.torque.x;
 			new_data_.wrench.torque.y -= offset_data_.wrench.torque.y;
-			new_data_.wrench.torque.z -= offset_data_.wrench.torque.z;  
+			new_data_.wrench.torque.z -= offset_data_.wrench.torque.z;
             lost_packets_ += (seqdiff - 1);
             ++packet_count_;
             condition_.notify_all();
@@ -441,9 +441,9 @@ void EtherDAQDriver::recvThreadFunc()
     } // end while
   }
   catch (std::exception &e)
-  {    
+  {
     recv_thread_running_ = false;
-    { 
+    {
 	  boost::unique_lock<boost::mutex> lock(mutex_);
       recv_thread_error_msg_ = e.what();
     }
@@ -453,10 +453,10 @@ void EtherDAQDriver::recvThreadFunc()
 
 void EtherDAQDriver::getData(geometry_msgs::WrenchStamped &data)
 {
-  { 
+  {
 	boost::unique_lock<boost::mutex> lock(mutex_);
     data = new_data_;
-  }  
+  }
 }
 
 
@@ -464,7 +464,7 @@ void EtherDAQDriver::diagnostics(diagnostic_updater::DiagnosticStatusWrapper &d)
 {
   // Publish diagnostics
   d.name = "EthernetDAQ Driver : " + address_;
-  
+
   d.summary(d.OK, "OK");
   d.hardware_id = "0";
 
@@ -485,7 +485,7 @@ void EtherDAQDriver::diagnostics(diagnostic_updater::DiagnosticStatusWrapper &d)
 
   ros::Time current_time(ros::Time::now());
   double recv_rate = double(int32_t(packet_count_ - diag_packet_count_)) / (current_time - last_diag_pub_time_).toSec();
-    
+
   d.clear();
   d.addf("IP Address", "%s", address_.c_str());
   d.addf("System status", "0x%08x", system_status_);
