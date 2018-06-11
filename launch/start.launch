@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<launch>
+	<arg name="ip"/>
+	<arg name="frame_id" default="tool0"/>
+
+	<node
+		pkg="optoforce_etherdaq_driver"
+		type="etherdaq_node"
+		name="etherdaq_node"
+		args="--address $(arg ip) --rate 1000 --filter 4 --frame_id $(arg frame_id)" />
+
+	<!--node pkg="optoforce_etherdaq_driver" type="etherdaq_node" name="etherdaq_node">
+		<arg name="address" value="$(arg ip)"/>
+		<arg name="frame_id" value="$(arg frame_id)"/>
+		<arg name="rate" value="1000"/>
+		<arg name="filter" value="4"/>		
+	</node-->
+
+</launch>

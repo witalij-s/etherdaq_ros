@@ -1,0 +1,17 @@
+package: optoforce_etherdaq_driver
+components:
+  - name: "Optoforce 6-Axis FT-Sensor"
+    description: "Optoforce Force-Torque-Sensor"
+    type: driver/sensor/optoforce/6-axis
+    roslaunch: start.launch
+    configuration:
+      - datatype: string
+        name: ip
+        namespace: ''
+        default: 127.0.0.1
+nodes:
+  - node_callerid: /etherdaq_node
+    type: etherdaq_node
+yaml_config_folder: module_config/yaml
+status_topic: /etherdaq_node/status
+
